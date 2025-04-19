@@ -6,9 +6,15 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
-      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - NODE_ENV=production
+      - MODAL_API_URL=${MODAL_API_URL}
+      - MODAL_API_TOKEN=${MODAL_API_TOKEN}
       - X_API_BEARER_TOKEN=${X_API_BEARER_TOKEN}
+      - NOTIFICATION_DRIVER=${NOTIFICATION_DRIVER}
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    volumes:
+      - ./sources.json:/app/sources.json
     ports:
       - "3000:3000"
+    restart: unless-stopped

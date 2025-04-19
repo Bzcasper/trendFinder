@@ -1,0 +1,26 @@
+{
+  "web_sources": [
+    {"identifier": "https://openai.com/blog", "type": "website"},
+    {"identifier": "https://www.anthropic.com/news", "type": "website"},
+    {"identifier": "https://ai.google/news/", "type": "website"},
+    {"identifier": "https://news.microsoft.com/source/topics/ai/", "type": "website"},
+    {"identifier": "https://news.ycombinator.com/", "type": "website"},
+    {"identifier": "https://www.reuters.com/technology/artificial-intelligence/", "type": "website"},
+    {"identifier": "https://simonwillison.net/", "type": "website"},
+    {"identifier": "https://huggingface.co/blog", "type": "website"},
+    {"identifier": "https://techcrunch.com/category/artificial-intelligence/", "type": "website"},
+    {"identifier": "https://www.theverge.com/ai-artificial-intelligence", "type": "website"}
+  ],
+  "twitter_sources": [
+    {"identifier": "https://x.com/OpenAI", "type": "twitter"},
+    {"identifier": "https://x.com/AnthropicAI", "type": "twitter"},
+    {"identifier": "https://x.com/Google_AI", "type": "twitter"},
+    {"identifier": "https://x.com/MSFTResearch", "type": "twitter"},
+    {"identifier": "https://x.com/huggingface", "type": "twitter"},
+    {"identifier": "https://x.com/yhulk", "type": "twitter"},
+    {"identifier": "https://x.com/jimfan", "type": "twitter"},
+    {"identifier": "https://x.com/samaltman", "type": "twitter"},
+    {"identifier": "https://x.com/sama", "type": "twitter"},
+    {"identifier": "https://x.com/AndrewYNg", "type": "twitter"}
+  ]
+}

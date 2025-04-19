@@ -1,0 +1,8 @@
+crawl4ai>=0.5.0
+playwright>=1.40.0
+aiohttp>=3.8.4
+pydantic>=2.0.0
+asyncio>=3.4.3
+psutil>=5.9.0
+dateutil>=2.8.2
+python-dateutil>=2.8.2

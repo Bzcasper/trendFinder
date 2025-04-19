@@ -1,153 +1,192 @@
-import FirecrawlApp from "@mendable/firecrawl-js";
 import dotenv from "dotenv";
-// Removed Together import
+import { exec } from "child_process";
+import { promisify } from "util";
 import { z } from "zod";
-// Removed zodToJsonSchema import since we no longer enforce JSON output via Together
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 
-// Initialize Firecrawl
-const app = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY });
+// Convert exec to Promise-based
+const execPromise = promisify(exec);
 
 // 1. Define the schema for our expected JSON
 const StorySchema = z.object({
   headline: z.string().describe("Story or post headline"),
   link: z.string().describe("A link to the post or story"),
   date_posted: z.string().describe("The date the story or post was published"),
+  source_type: z.string().optional().describe("Type of source (website or twitter)"),
+  source_domain: z.string().optional().describe("Domain of the source website"),
+  source_url: z.string().optional().describe("Original source URL")
 });
 
-const StoriesSchema = z.object({
+const ErrorSchema = z.object({
+  source: z.string().describe("Source URL that had an error"),
+  error: z.string().describe("Error message")
+});
+
+const StoriesResponseSchema = z.object({
   stories: z
     .array(StorySchema)
     .describe("A list of today's AI or LLM-related stories"),
+  errors: z
+    .array(ErrorSchema)
+    .optional()
+    .describe("List of errors encountered during scraping")
 });
 
 // Define the TypeScript type for a story using the schema
 type Story = z.infer<typeof StorySchema>;
+type ScrapeError = z.infer<typeof ErrorSchema>;
+type StoriesResponse = z.infer<typeof StoriesResponseSchema>;
+
+// Define source interface from getCronSources
+interface Source {
+  identifier: string;
+  type: string;
+}
 
 /**
- * Scrape sources using Firecrawl (for non-Twitter URLs) and the Twitter API.
+ * Logs scrape stats to a JSON file for tracking
+ */
+function logScrapeStats(startTime: number, stories: Story[], errors: ScrapeError[]) {
+  try {
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    const stats = {
+      timestamp: new Date().toISOString(),
+      duration_ms: duration,
+      stories_count: stories.length,
+      errors_count: errors.length,
+      sources_by_type: {
+        website: stories.filter(s => s.source_type === "website").length,
+        twitter: stories.filter(s => s.source_type === "twitter").length
+      }
+    };
+    
+    // Create stats directory if it doesn't exist
+    const statsDir = path.join(process.cwd(), "stats");
+    if (!fs.existsSync(statsDir)) {
+      fs.mkdirSync(statsDir, { recursive: true });
+    }
+    
+    // Write stats to file
+    const statsFile = path.join(statsDir, `scrape_stats_${new Date().toISOString().replace(/:/g, "-")}.json`);
+    fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2));
+    
+    console.log(`Scrape stats logged to ${statsFile}`);
+  } catch (error) {
+    console.error("Error logging scrape stats:", error);
+  }
+}
+
+/**
+ * Scrape sources using our Python Crawl4AI implementation.
+ * This replaces the previous Firecrawl implementation.
  * Returns a combined array of story objects.
  */
-export async function scrapeSources(
-  sources: { identifier: string }[],
-): Promise<Story[]> {
-  // Explicitly type the stories array so it is Story[]
-  const combinedText: { stories: Story[] } = { stories: [] };
-
-  // Configure toggles for scrapers
-  const useScrape = true;
-  const useTwitter = true;
-  const tweetStartTime = new Date(
-    Date.now() - 24 * 60 * 60 * 1000,
-  ).toISOString();
-
-  for (const sourceObj of sources) {
-    const source = sourceObj.identifier;
-
-    // --- 1) Handle Twitter/X sources ---
-    if (source.includes("x.com")) {
-      if (useTwitter) {
-        const usernameMatch = source.match(/x\.com\/([^\/]+)/);
-        if (!usernameMatch) continue;
-        const username = usernameMatch[1];
-
-        // Construct the query and API URL
-        const query = `from:${username} has:media -is:retweet -is:reply`;
-        const encodedQuery = encodeURIComponent(query);
-        const encodedStartTime = encodeURIComponent(tweetStartTime);
-        const apiUrl = `https://api.x.com/2/tweets/search/recent?query=${encodedQuery}&max_results=10&start_time=${encodedStartTime}`;
-
-        try {
-          const response = await fetch(apiUrl, {
-            headers: {
-              Authorization: `Bearer ${process.env.X_API_BEARER_TOKEN}`,
-            },
-          });
-          if (!response.ok) {
-            throw new Error(
-              `Failed to fetch tweets for ${username}: ${response.statusText}`,
-            );
-          }
-          const tweets = await response.json();
-
-          if (tweets.meta?.result_count === 0) {
-            console.log(`No tweets found for username ${username}.`);
-          } else if (Array.isArray(tweets.data)) {
-            console.log(`Tweets found from username ${username}`);
-            const stories = tweets.data.map(
-              (tweet: any): Story => ({
-                headline: tweet.text,
-                link: `https://x.com/i/status/${tweet.id}`,
-                date_posted: tweetStartTime,
-              }),
-            );
-            combinedText.stories.push(...stories);
-          } else {
-            console.error("Expected tweets.data to be an array:", tweets.data);
-          }
-        } catch (error: any) {
-          console.error(`Error fetching tweets for ${username}:`, error);
-        }
+export async function scrapeSources(sources: Source[]): Promise<Story[]> {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`Starting scrape process for ${sources.length} sources...`);
+    
+    // Filter out sources without required API keys
+    const hasXApiKey = !!process.env.X_API_BEARER_TOKEN;
+    
+    // If no Twitter API key, filter out Twitter sources
+    const filteredSources = sources.filter(source => {
+      if (source.type === "twitter" && !hasXApiKey) {
+        console.log(`Skipping Twitter source ${source.identifier} - No X_API_BEARER_TOKEN provided`);
+        return false;
       }
+      return true;
+    });
+    
+    if (filteredSources.length === 0) {
+      console.log("No valid sources to scrape after filtering");
+      return [];
     }
-    // --- 2) Handle all other sources with Firecrawl ---
-    else {
-      if (useScrape) {
-        const currentDate = new Date().toLocaleDateString();
-        const promptForFirecrawl = `
-Return only today's AI or LLM related story or post headlines and links in JSON format from the page content. 
-They must be posted today, ${currentDate}. The format should be:
-{
-  "stories": [
-    {
-      "headline": "headline1",
-      "link": "link1",
-      "date_posted": "YYYY-MM-DD"
-    },
-    ...
-  ]
-}
-If there are no AI or LLM stories from today, return {"stories": []}.
-
-The source link is ${source}. 
-If a story link is not absolute, prepend ${source} to make it absolute. 
-Return only pure JSON in the specified format (no extra text, no markdown, no \`\`\`).
-        `;
-        try {
-          const scrapeResult = await app.extract([source], {
-            prompt: promptForFirecrawl,
-            schema: StoriesSchema,
-          });
-          if (!scrapeResult.success) {
-            throw new Error(`Failed to scrape: ${scrapeResult.error}`);
-          }
-          // Cast the result to our expected type
-          const todayStories = scrapeResult.data as { stories: Story[] };
-          if (!todayStories || !todayStories.stories) {
-            console.error(
-              `Scraped data from ${source} does not have a "stories" key.`,
-              todayStories,
-            );
-            continue;
-          }
-          console.log(
-            `Found ${todayStories.stories.length} stories from ${source}`,
-          );
-          combinedText.stories.push(...todayStories.stories);
-        } catch (error: any) {
-          if (error.statusCode === 429) {
-            console.error(
-              `Rate limit exceeded for ${source}. Skipping this source.`,
-            );
-          } else {
-            console.error(`Error scraping source ${source}:`, error);
-          }
-        }
-      }
+    
+    // Convert sources to JSON string for passing to Python
+    const sourcesJson = JSON.stringify(filteredSources);
+    
+    // Path to the Python crawler script
+    const crawlerPath = path.join(__dirname, "crawler.py");
+    
+    // Set environment variables for the Python script
+    const env = {
+      ...process.env,
+      // Pass any additional environment variables here if needed
+      NODE_ENV: process.env.NODE_ENV || 'development'
+    };
+    
+    // Run the Python crawler with our sources
+    console.log("Executing Python crawler...");
+    console.time("Crawler execution time");
+    
+    const { stdout, stderr } = await execPromise(`python ${crawlerPath} '${sourcesJson}'`, { env });
+    
+    console.timeEnd("Crawler execution time");
+    
+    if (stderr) {
+      console.error("Error from Python crawler:", stderr);
     }
+    
+    // Parse the JSON result from Python
+    const result: StoriesResponse = JSON.parse(stdout);
+    
+    // Log any errors from the Python scraper
+    if (result.errors && result.errors.length > 0) {
+      console.error(`Errors during scraping (${result.errors.length}):`);
+      result.errors.forEach(error => {
+        console.error(`- ${error.source}: ${error.error}`);
+      });
+    }
+    
+    // Validate the stories against our schema
+    const parsedResult = StoriesResponseSchema.parse(result);
+    
+    // Log stats
+    logScrapeStats(startTime, parsedResult.stories, parsedResult.errors || []);
+    
+    console.log(`Successfully scraped ${parsedResult.stories.length} stories`);
+    return parsedResult.stories;
+  } catch (error) {
+    console.error("Error in scrapeSources:", error);
+    // Return empty array on error
+    return [];
   }
+}
 
-  console.log("Combined Stories:", combinedText.stories);
-  return combinedText.stories;
+/**
+ * Get stats from the last scraping run
+ */
+export function getLastScrapeStats() {
+  try {
+    const statsDir = path.join(process.cwd(), "stats");
+    if (!fs.existsSync(statsDir)) {
+      return null;
+    }
+    
+    // Get all stats files
+    const files = fs.readdirSync(statsDir)
+      .filter(file => file.startsWith("scrape_stats_"))
+      .map(file => path.join(statsDir, file));
+    
+    if (files.length === 0) {
+      return null;
+    }
+    
+    // Sort by modification time (newest first)
+    files.sort((a, b) => fs.statSync(b).mtime.getTime() - fs.statSync(a).mtime.getTime());
+    
+    // Read the latest stats file
+    const latestStats = JSON.parse(fs.readFileSync(files[0], 'utf8'));
+    return latestStats;
+  } catch (error) {
+    console.error("Error getting last scrape stats:", error);
+    return null;
+  }
 }
