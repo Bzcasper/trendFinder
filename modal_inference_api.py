@@ -11,7 +11,7 @@ import modal
 MINUTES = 60
 GPU_CONFIG = "T4:1"  # Using 1x T4 GPU for more affordable inference
 MODEL_CACHE_DIR = "/root/.cache/huggingface"
-TOKEN = os.environ.get("MODAL_API_TOKEN", "your-secret-token-here")  # Replace with secure token
+TOKEN = os.environ.get("MODAL_API_TOKEN", "ak-oH4YlsxdQDVeCLqtXREK3P")  # Replace with secure token
 
 app = modal.App("trend-analyzer-api")
 
@@ -74,9 +74,9 @@ def download_model():
     
     print("🔍 Checking if model is already downloaded...")
     
-    # Using Mistral-7B-Instruct-v0.2 as our default model
-    model_id = "mistralai/Mistral-7B-Instruct-v0.2"
-    model_path = os.path.join(MODEL_CACHE_DIR, "models--mistralai--Mistral-7B-Instruct-v0.2")
+    # Using DeepSeek-7B-Instruct-v1.5 as our default model
+    model_id = "DeepSeek/coder-7b-instruct-v1.5"
+    model_path = os.path.join(MODEL_CACHE_DIR, "models--DeepSeek--coder-7b-instruct-v1.5")
     
     if os.path.exists(model_path):
         print(f"✅ Model already downloaded at {model_path}")
@@ -103,12 +103,12 @@ def download_model():
     volumes={MODEL_CACHE_DIR: model_volume},
     gpu=GPU_CONFIG,
     timeout=15 * MINUTES,
-    container_idle_timeout=10 * MINUTES,  # Auto-shutdown after 10 minutes of inactivity
-    concurrency_limit=3,  # Allow up to 3 concurrent requests
+    scaledown_window=10 * MINUTES,  # Auto-shutdown after 10 minutes of inactivity
+    max_containers=3,  # Allow up to 3 concurrent requests
 )
 @modal.asgi_app()
 def trend_analyzer_api():
-    """Flask API server for Mistral AI chat completions."""
+    """Flask API server for DeepSeek AI chat completions."""
     from flask import Flask, request, jsonify, Response, stream_with_context
     import torch
     from threading import Thread
@@ -130,17 +130,17 @@ def trend_analyzer_api():
         # Continue anyway - we'll try to load from cache if available
     
     # Initialize model class
-    class MistralModel:
+    class DeepSeekModel:
         def __init__(self):
             self.model = None
             self.tokenizer = None
             
         def load_model(self):
-            """Load Mistral model with optimized parameters."""
+            """Load DeepSeek model with optimized parameters."""
             if self.model is not None:
                 return
                 
-            logger.info("🔄 Loading Mistral model...")
+            logger.info("🔄 Loading DeepSeek model...")
             
             try:
                 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -148,14 +148,14 @@ def trend_analyzer_api():
                 
                 # Load tokenizer
                 self.tokenizer = AutoTokenizer.from_pretrained(
-                    "mistralai/Mistral-7B-Instruct-v0.2",
+                    "DeepSeek/coder-7b-instruct-v1.5",
                     cache_dir=MODEL_CACHE_DIR,
                     trust_remote_code=True
                 )
                 
                 # Load model with BF16 precision and quantization for efficiency
                 self.model = AutoModelForCausalLM.from_pretrained(
-                    "mistralai/Mistral-7B-Instruct-v0.2",
+                    "DeepSeek/coder-7b-instruct-v1.5",
                     cache_dir=MODEL_CACHE_DIR,
                     torch_dtype=torch.bfloat16,
                     trust_remote_code=True,
@@ -163,7 +163,7 @@ def trend_analyzer_api():
                     load_in_8bit=True   # 8-bit quantization for memory efficiency
                 )
                 
-                logger.info("✅ Mistral model loaded successfully")
+                logger.info("✅ DeepSeek model loaded successfully")
             except Exception as e:
                 logger.error(f"❌ Failed to load model: {str(e)}")
                 raise
@@ -181,7 +181,7 @@ def trend_analyzer_api():
                 logger.info("🧹 Model unloaded to free memory")
                 
         def format_prompt(self, messages):
-            """Format messages for Mistral model."""
+            """Format messages for DeepSeek model."""
             formatted_prompt = ""
             for msg in messages:
                 role = msg["role"]
@@ -203,7 +203,7 @@ def trend_analyzer_api():
             """Generate completion for chat messages using transformers."""
             self.load_model()
             
-            # Format prompt according to Mistral's format
+            # Format prompt according to DeepSeek's format
             prompt = self.format_prompt(messages)
             
             # Extract generation parameters with defaults
@@ -285,14 +285,14 @@ def trend_analyzer_api():
     from transformers import TextIteratorStreamer
     
     # Initialize model singleton
-    model = MistralModel()
+    model = DeepSeekModel()
     
     @app.route("/", methods=["GET"])
     def index():
         """API documentation endpoint."""
         return jsonify({
             "status": "online",
-            "model": "Mistral 7B Instruct v0.2",
+            "model": "DeepSeek 7B Instruct v1.5",
             "endpoints": {
                 "/v1/chat/completions": "Chat completions endpoint (OpenAI-compatible)",
                 "/v1/completions": "Text completions endpoint",
@@ -356,7 +356,7 @@ def trend_analyzer_api():
                     start_time = time.time()
                     completion_id = f"chatcmpl-{int(start_time * 1000)}"
                     
-                    yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': int(start_time), 'model': 'mistral-7b-instruct', 'choices': [{'index': 0, 'delta': {'role': 'assistant'}, 'finish_reason': None}]})}\n\n"
+                    yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': int(start_time), 'model': 'deepseek-coder-7b-instruct', 'choices': [{'index': 0, 'delta': {'role': 'assistant'}, 'finish_reason': None}]})}\n\n"
                     
                     # Get streaming completion
                     full_text = ""
@@ -368,7 +368,7 @@ def trend_analyzer_api():
                             "id": completion_id,
                             "object": "chat.completion.chunk",
                             "created": int(time.time()),
-                            "model": "mistral-7b-instruct",
+                            "model": "deepseek-coder-7b-instruct",
                             "choices": [{
                                 "index": 0,
                                 "delta": {"content": delta_text},
@@ -382,7 +382,7 @@ def trend_analyzer_api():
                         "id": completion_id,
                         "object": "chat.completion.chunk",
                         "created": int(time.time()),
-                        "model": "mistral-7b-instruct",
+                        "model": "deepseek-coder-7b-instruct",
                         "choices": [{
                             "index": 0,
                             "delta": {},
@@ -406,7 +406,7 @@ def trend_analyzer_api():
                     "id": f"chatcmpl-{int(start_time * 1000)}",
                     "object": "chat.completion",
                     "created": int(start_time),
-                    "model": "mistral-7b-instruct",
+                    "model": "deepseek-coder-7b-instruct",
                     "choices": [{
                         "index": 0,
                         "message": {
@@ -475,7 +475,7 @@ def trend_analyzer_api():
                             "id": completion_id,
                             "object": "text_completion",
                             "created": int(time.time()),
-                            "model": "mistral-7b-instruct",
+                            "model": "deepseek-coder-7b-instruct",
                             "choices": [{
                                 "text": delta_text,
                                 "index": 0,
@@ -502,7 +502,7 @@ def trend_analyzer_api():
                     "id": f"cmpl-{int(start_time * 1000)}",
                     "object": "text_completion",
                     "created": int(start_time),
-                    "model": "mistral-7b-instruct",
+                    "model": "deepseek-coder-7b-instruct",
                     "choices": [{
                         "text": completion["choices"][0]["text"],
                         "index": 0,
@@ -538,7 +538,7 @@ def main():
     -H "Content-Type: application/json" \\
     -H "Authorization: Bearer {TOKEN}" \\
     -d '{{
-        "model": "mistral-7b-instruct",
+        "model": "deepseek-coder-7b-instruct",
         "messages": [
             {{"role": "system", "content": "You are a helpful assistant."}},
             {{"role": "user", "content": "Summarize the latest trends in AI based on these stories: [Insert stories here]"}}

@@ -1,8 +1,9 @@
 import dotenv from "dotenv";
+import process from 'process';
 
 dotenv.config();
 
-export async function getCronSources(): Promise<{ identifier: string }[]> {
+export async function getCronSources(): Promise<{ identifier: string; type: string }[]> {
   try {
     console.log("Fetching sources...");
 
@@ -11,22 +12,19 @@ export async function getCronSources(): Promise<{ identifier: string }[]> {
     const hasFirecrawlKey = !!process.env.FIRECRAWL_API_KEY;
 
     // Define sources based on available API keys
-    const sources: { identifier: string }[] = [
+    const sources: { identifier: string; type: string }[] = [
       ...(hasFirecrawlKey
         ? [
-            { identifier: "https://www.firecrawl.dev/blog" },
-            { identifier: "https://openai.com/news/" },
-            { identifier: "https://www.anthropic.com/news" },
-            { identifier: "https://news.ycombinator.com/" },
-            {
-              identifier:
-                "https://www.reuters.com/technology/artificial-intelligence/",
-            },
-            { identifier: "https://simonwillison.net/" },
-            { identifier: "https://buttondown.com/ainews/archive/" },
+            { identifier: "https://www.firecrawl.dev/blog", type: "website" },
+            { identifier: "https://openai.com/news/", type: "website" },
+            { identifier: "https://www.anthropic.com/news", type: "website" },
+            { identifier: "https://news.ycombinator.com/", type: "website" },
+            { identifier: "https://www.reuters.com/technology/artificial-intelligence/", type: "website" },
+            { identifier: "https://simonwillison.net/", type: "website" },
+            { identifier: "https://buttondown.com/ainews/archive/", type: "website" },
           ]
         : []),
-      ...(hasXApiKey ? [{ identifier: "https://x.com/skirano" }] : []),
+      ...(hasXApiKey ? [{ identifier: "https://x.com/skirano", type: "twitter" }] : []),
     ];
 
     // Return the full objects instead of mapping to strings
