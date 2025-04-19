@@ -161,6 +161,14 @@ def process_story(story):
     return story
 ```
 
+### Implementation Details
+
+- **Locate the `crawler.py` file**: The Python crawler implementation is located in `src/services/crawler.py`.
+- **Update extraction parameters**: Modify `prompt` or `LLMExtractionStrategy` parameters directly in `crawler.py` to fine-tune AI extraction.
+- **Adjust concurrency**: Change `settings.max_concurrent` in your config manager (see `utils/crawlerConfig.py`) to control parallelism.
+- **Playwright config**: Change browser settings via `BrowserConfig` (e.g. headless, timeout).
+- **Post-processing Hooks**: Use `utils/storyProcessor.py` to add custom post-processing functions.
+
 ## Performance Optimization
 
 ### Memory Management

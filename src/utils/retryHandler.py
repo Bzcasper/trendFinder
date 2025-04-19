@@ -8,7 +8,18 @@ import logging
 import random
 import time
 from functools import wraps
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, Callable, TypeVar, Optional, Type, Union, Tuple
+import colorama
+
+# Initialize colorama for colored terminal output
+colorama.init()
+
+# Define colors for better logging
+GREEN = colorama.Fore.GREEN
+YELLOW = colorama.Fore.YELLOW
+RED = colorama.Fore.RED
+CYAN = colorama.Fore.CYAN
+RESET = colorama.Fore.RESET
 
 logger = logging.getLogger('retry_handler')
 
@@ -37,7 +48,7 @@ def retry_decorator(max_retries: int = 3,
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exception = None
             
-            for attempt in range(max_retries + 1):
+            for attempt in range(1, max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
                 except exceptions as e:
@@ -46,19 +57,19 @@ def retry_decorator(max_retries: int = 3,
                     # Don't sleep after the last attempt
                     if attempt < max_retries:
                         # Calculate backoff with jitter
-                        backoff_time = initial_backoff * (backoff_multiplier ** attempt)
+                        backoff_time = initial_backoff * (backoff_multiplier ** (attempt - 1))
                         jitter_amount = backoff_time * jitter * (2 * random.random() - 1)
                         sleep_time = backoff_time + jitter_amount
                         
                         logger.warning(
-                            f"Attempt {attempt + 1}/{max_retries + 1} failed with error: {str(e)}. "
-                            f"Retrying in {sleep_time:.2f} seconds..."
+                            f"{YELLOW}Attempt {attempt}/{max_retries} failed with error: {str(e)}. "
+                            f"Retrying in {sleep_time:.2f} seconds...{RESET}"
                         )
                         
                         await asyncio.sleep(sleep_time)
                     else:
                         logger.error(
-                            f"All {max_retries + 1} attempts failed. Last error: {str(e)}"
+                            f"{RED}All {max_retries} attempts failed. Last error: {str(e)}{RESET}"
                         )
             
             # If we get here, all retries failed
@@ -68,7 +79,7 @@ def retry_decorator(max_retries: int = 3,
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exception = None
             
-            for attempt in range(max_retries + 1):
+            for attempt in range(1, max_retries + 1):
                 try:
                     return func(*args, **kwargs)
                 except exceptions as e:
@@ -77,19 +88,19 @@ def retry_decorator(max_retries: int = 3,
                     # Don't sleep after the last attempt
                     if attempt < max_retries:
                         # Calculate backoff with jitter
-                        backoff_time = initial_backoff * (backoff_multiplier ** attempt)
+                        backoff_time = initial_backoff * (backoff_multiplier ** (attempt - 1))
                         jitter_amount = backoff_time * jitter * (2 * random.random() - 1)
                         sleep_time = backoff_time + jitter_amount
                         
                         logger.warning(
-                            f"Attempt {attempt + 1}/{max_retries + 1} failed with error: {str(e)}. "
-                            f"Retrying in {sleep_time:.2f} seconds..."
+                            f"{YELLOW}Attempt {attempt}/{max_retries} failed with error: {str(e)}. "
+                            f"Retrying in {sleep_time:.2f} seconds...{RESET}"
                         )
                         
                         time.sleep(sleep_time)
                     else:
                         logger.error(
-                            f"All {max_retries + 1} attempts failed. Last error: {str(e)}"
+                            f"{RED}All {max_retries} attempts failed. Last error: {str(e)}{RESET}"
                         )
             
             # If we get here, all retries failed

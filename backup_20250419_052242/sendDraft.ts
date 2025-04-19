@@ -42,8 +42,6 @@ async function sendDraftToDiscord(draft_post: string) {
     );
 
     console.log(`${colors.green}Successfully sent draft to Discord webhook${colors.reset}`);
-    // Also save a copy to file as backup
-    saveDraftToFile(draft_post, 'discord_success');
     return `Success sending draft to Discord webhook at ${new Date().toISOString()}`;
   } catch (error: any) {
     console.log(`${colors.red}Error sending draft to Discord webhook${colors.reset}`);
@@ -87,8 +85,6 @@ async function sendDraftToSlack(draft_post: string) {
     );
 
     console.log(`${colors.green}Successfully sent draft to Slack webhook${colors.reset}`);
-    // Also save a copy to file as backup
-    saveDraftToFile(draft_post, 'slack_success');
     return `Success sending draft to Slack webhook at ${new Date().toISOString()}`;
   } catch (error: any) {
     console.log(`${colors.red}Error sending draft to Slack webhook${colors.reset}`);
@@ -110,45 +106,25 @@ async function sendDraftToSlack(draft_post: string) {
 }
 
 /**
- * Save draft to file (dedicated file driver option)
+ * Save draft to file as backup when webhook fails
  */
-function sendDraftToFile(draft_post: string) {
-  try {
-    console.log(`${colors.cyan}Saving draft to file...${colors.reset}`);
-    
-    const result = saveDraftToFile(draft_post, 'output');
-    console.log(`${colors.green}Successfully saved draft to file: ${result}${colors.reset}`);
-    return `Success saving draft to file at ${new Date().toISOString()}: ${result}`;
-  } catch (error: any) {
-    console.error(`${colors.red}Error saving draft to file: ${error.message}${colors.reset}`);
-    return `Error saving draft to file: ${error.message}`;
-  }
-}
-
-/**
- * Save draft to file as backup or primary output
- * Returns the path to the saved file
- */
-function saveDraftToFile(draft_post: string, prefix: string): string {
+function saveDraftToFile(draft_post: string, prefix: string) {
   try {
     // Create backup directory if it doesn't exist
-    const outputDir = process.env.OUTPUT_DIR || path.join(process.cwd(), 'output');
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    const backupDir = path.join(process.cwd(), 'backup');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
     }
     
     // Create filename with timestamp
     const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const filename = path.join(outputDir, `${prefix}_${timestamp}.txt`);
+    const filename = path.join(backupDir, `${prefix}_draft_${timestamp}.txt`);
     
     // Write draft to file
     fs.writeFileSync(filename, draft_post);
     console.log(`${colors.yellow}Draft saved to ${filename}${colors.reset}`);
-    
-    return filename;
   } catch (error) {
     console.error(`${colors.red}Error saving draft to file: ${error}${colors.reset}`);
-    throw error;
   }
 }
 
@@ -164,11 +140,9 @@ export async function sendDraft(draft_post: string) {
       return sendDraftToSlack(draft_post);
     case 'discord':
       return sendDraftToDiscord(draft_post);
-    case 'file':
-      return sendDraftToFile(draft_post);
     default:
-      const errorMsg = `Unsupported notification driver: ${notificationDriver}`;
-      console.error(`${colors.red}${errorMsg}${colors.reset}`);
+      const errorMsg = `${colors.red}Unsupported notification driver: ${notificationDriver}${colors.reset}`;
+      console.error(errorMsg);
       
       // Save draft to file as fallback
       saveDraftToFile(draft_post, 'unsupported_driver');

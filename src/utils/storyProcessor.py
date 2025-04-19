@@ -10,6 +10,17 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Set, Optional
 from urllib.parse import urlparse
 import difflib
+import colorama
+
+# Initialize colorama for colored terminal output
+colorama.init()
+
+# Define colors for better logging
+GREEN = colorama.Fore.GREEN
+YELLOW = colorama.Fore.YELLOW
+RED = colorama.Fore.RED
+CYAN = colorama.Fore.CYAN
+RESET = colorama.Fore.RESET
 
 logger = logging.getLogger('story_processor')
 
@@ -117,14 +128,17 @@ class StoryProcessor:
             elif "yesterday" in date_str.lower():
                 return today - timedelta(days=1)
             elif "days ago" in date_str.lower():
-                days = int(re.search(r'(\d+)\s+days ago', date_str.lower()).group(1))
-                return today - timedelta(days=days)
+                try:
+                    days = int(re.search(r'(\d+)\s+days ago', date_str.lower()).group(1))
+                    return today - timedelta(days=days)
+                except (AttributeError, ValueError):
+                    return today
             else:
                 # Default to today
                 return today
                 
         except Exception as e:
-            logger.warning(f"Could not parse date: {date_str} - {str(e)}")
+            logger.warning(f"{YELLOW}Could not parse date: {date_str} - {str(e)}{RESET}")
             return None
     
     def _normalize_url(self, url: str) -> str:
@@ -242,10 +256,15 @@ class StoryProcessor:
             Processed stories
         """
         processed_stories = []
+        skipped_count = 0
+        duplicates_count = 0
+        
+        logger.info(f"{CYAN}Processing {len(stories)} raw stories...{RESET}")
         
         for story in stories:
             # Skip if already processed
             if self._is_duplicate(story, processed_stories):
+                duplicates_count += 1
                 continue
             
             # Clean headline
@@ -254,6 +273,7 @@ class StoryProcessor:
                 
                 # Skip if headline is too short
                 if len(story['headline']) < self.min_headline_length:
+                    skipped_count += 1
                     continue
             
             # Normalize URL
@@ -262,10 +282,12 @@ class StoryProcessor:
                 
             # Skip if not relevant to AI/ML
             if not self._is_relevant(story):
+                skipped_count += 1
                 continue
                 
             # Skip if date is too old
             if not self._is_valid_date(story):
+                skipped_count += 1
                 continue
                 
             # Add source domain as metadata
@@ -277,10 +299,15 @@ class StoryProcessor:
             processed_stories.append(story)
             
         # Sort stories by date (newest first)
-        processed_stories.sort(
-            key=lambda x: self._normalize_date(x.get('date_posted', '')) or datetime.now(),
-            reverse=True
-        )
+        try:
+            processed_stories.sort(
+                key=lambda x: self._normalize_date(x.get('date_posted', '')) or datetime.now(),
+                reverse=True
+            )
+        except Exception as e:
+            logger.error(f"{RED}Error sorting stories: {str(e)}{RESET}")
+        
+        logger.info(f"{GREEN}Processed stories: {len(processed_stories)} kept, {duplicates_count} duplicates, {skipped_count} skipped{RESET}")
         
         return processed_stories
 

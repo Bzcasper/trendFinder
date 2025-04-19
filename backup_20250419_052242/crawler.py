@@ -26,63 +26,10 @@ RESET = colorama.Fore.RESET
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Try importing utility modules - with fallbacks for testing
-try:
-    from utils.retryHandler import retry_decorator, classify_exception
-    from utils.crawlerConfig import get_config_manager
-    from utils.storyProcessor import get_story_processor
-except ImportError:
-    logging.warning(f"{YELLOW}Utils modules not found. Using minimal implementations.{RESET}")
-    
-    # Minimal implementation of retry decorator
-    def retry_decorator(max_retries=3, initial_backoff=2.0):
-        def decorator(func):
-            async def async_wrapper(*args, **kwargs):
-                last_exception = None
-                for attempt in range(1, max_retries + 1):
-                    try:
-                        return await func(*args, **kwargs)
-                    except Exception as e:
-                        last_exception = e
-                        if attempt < max_retries:
-                            sleep_time = initial_backoff * (2 ** (attempt - 1))
-                            logging.warning(f"{YELLOW}Attempt {attempt}/{max_retries} failed. Retrying in {sleep_time}s...{RESET}")
-                            await asyncio.sleep(sleep_time)
-                        else:
-                            logging.error(f"{RED}All {max_retries} attempts failed.{RESET}")
-                raise last_exception
-            return async_wrapper
-        return decorator
-    
-    def classify_exception(exception):
-        return exception
-    
-    # Minimal config manager
-    class ConfigManager:
-        def __init__(self):
-            self.settings = type('Settings', (), {'max_concurrent': 3})
-            
-        def get_domain_settings(self, url):
-            return type('DomainSettings', (), {'rate_limit': 0.5, 'priority': 5, 'retry_count': 3})
-            
-        def get_browser_config(self, url):
-            from crawl4ai import BrowserConfig
-            return BrowserConfig(headless=True)
-            
-        def get_crawler_config(self, url):
-            from crawl4ai import CrawlerRunConfig, CacheMode
-            return CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
-    
-    def get_config_manager():
-        return ConfigManager()
-        
-    # Minimal story processor
-    class StoryProcessor:
-        def process_stories(self, stories):
-            return stories
-            
-    def get_story_processor():
-        return StoryProcessor()
+# Import utility modules
+from utils.retryHandler import retry_decorator, classify_exception
+from utils.crawlerConfig import get_config_manager
+from utils.storyProcessor import get_story_processor
 
 # Configure logging
 logging.basicConfig(
@@ -112,7 +59,7 @@ class Story(BaseModel):
     date_posted: str = Field(..., description="The date the story or post was published")
 
 class Stories(BaseModel):
-    stories: list[Story] = Field(default=[], description="A list of today's AI or LLM-related stories")
+    stories: list[Story] = Field(..., description="A list of today's AI or LLM-related stories")
 
 @retry_decorator(max_retries=3, initial_backoff=2.0)
 async def scrape_website(url: str, current_date: str) -> dict:
@@ -386,36 +333,16 @@ def main():
     """
     # Read sources from command line argument (JSON string)
     if len(sys.argv) != 2:
-        # Fixed the string escaping for double quotes in the f-string
-        usage_msg = f"{RED}Usage: python crawler.py '[{{\"identifier\": \"https://example.com\", \"type\": \"website\"}}]'{RESET}"
-        logger.error(usage_msg)
+        logger.error(f"{RED}Usage: python crawler.py '[{\"identifier\": \"https://example.com\", \"type\": \"website\"}]'{RESET}")
         sys.exit(1)
     
     try:
-        # Handle Windows command-line escaping issues
-        arg = sys.argv[1]
-        # Replace escaped quotes if needed
-        if '\\\"' in arg:
-            arg = arg.replace('\\\"', '"')
-        
-        # Strip surrounding quotes if they exist
-        if (arg.startswith("'") and arg.endswith("'")) or (arg.startswith('"') and arg.endswith('"')):
-            arg = arg[1:-1]
-            
-        # Debug the input
-        logger.info(f"{CYAN}Received argument: {arg[:100]}...{RESET}")
-        
-        # Parse JSON
-        sources = json.loads(arg)
-        logger.info(f"{GREEN}Successfully parsed JSON with {len(sources)} sources{RESET}")
-        
-        # Run crawler
+        sources = json.loads(sys.argv[1])
         result = asyncio.run(process_sources(sources))
-        
         # Print result as JSON to stdout
         print(json.dumps(result))
-    except json.JSONDecodeError as e:
-        logger.error(f"{RED}Invalid JSON input: {str(e)}{RESET}")
+    except json.JSONDecodeError:
+        logger.error(f"{RED}Invalid JSON input{RESET}")
         sys.exit(1)
     except Exception as e:
         logger.exception(f"{RED}Error: {str(e)}{RESET}")

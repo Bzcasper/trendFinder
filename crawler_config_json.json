@@ -27,55 +27,21 @@
       "excluded_selectors": [".cookie-banner", ".newsletter-signup"],
       "priority": 9
     },
-    "huggingface.co": {
+    "modal.com": {
       "wait_time": 3000,
       "rate_limit": 0.3,
       "retry_count": 3,
-      "css_selector": ".blog-content, article.post",
-      "excluded_selectors": [".blog-sidebar", ".site-footer"],
+      "css_selector": "article, .main-content, .docs-content",
+      "excluded_selectors": [".mobile-menu", ".footer"],
       "priority": 8
     },
-    "news.ycombinator.com": {
-      "wait_time": 1000,
-      "rate_limit": 0.5,
-      "retry_count": 2,
-      "css_selector": ".storylink, .athing",
+    "x.com": {
+      "wait_time": 2000,
+      "rate_limit": 0.3,
+      "retry_count": 3,
+      "css_selector": ".tweet, .timeline-Tweet",
       "excluded_selectors": [],
       "priority": 7
-    },
-    "theverge.com": {
-      "wait_time": 4000,
-      "rate_limit": 0.2,
-      "retry_count": 3,
-      "css_selector": "article, .c-entry-content",
-      "excluded_selectors": [".c-ad", ".chorus-advert", ".c-newsletter"],
-      "js_snippet": "window.scrollTo(0, document.body.scrollHeight * 0.5); await new Promise(r => setTimeout(r, 800)); window.scrollTo(0, document.body.scrollHeight);",
-      "priority": 6
-    },
-    "techcrunch.com": {
-      "wait_time": 3500,
-      "rate_limit": 0.2,
-      "retry_count": 3,
-      "css_selector": "article, .article-content",
-      "excluded_selectors": [".advertisement", ".ad-zone"],
-      "priority": 5
-    },
-    "reuters.com": {
-      "wait_time": 2500,
-      "rate_limit": 0.2,
-      "retry_count": 3,
-      "css_selector": "article, .article-body",
-      "excluded_selectors": [".ad", ".sticky-track"],
-      "js_snippet": "window.scrollBy(0, 400); await new Promise(r => setTimeout(r, 500)); window.scrollBy(0, 400);",
-      "priority": 4
-    },
-    "simonwillison.net": {
-      "wait_time": 1500,
-      "rate_limit": 0.5,
-      "retry_count": 2,
-      "css_selector": "article, .entry",
-      "excluded_selectors": [],
-      "priority": 3
     }
   }
 }

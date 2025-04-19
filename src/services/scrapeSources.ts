@@ -113,7 +113,7 @@ export async function scrapeSources(sources: Source[]): Promise<Story[]> {
     const sourcesJson = JSON.stringify(filteredSources);
     
     // Path to the Python crawler script
-    const crawlerPath = path.join(__dirname, "crawler.py");
+    const crawlerPath = path.join(process.cwd(), "src", "services", "crawler.py");
     
     // Set environment variables for the Python script
     const env = {

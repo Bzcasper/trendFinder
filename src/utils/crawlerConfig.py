@@ -9,6 +9,17 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
+import colorama
+
+# Initialize colorama for colored terminal output
+colorama.init()
+
+# Define colors for better logging
+GREEN = colorama.Fore.GREEN
+YELLOW = colorama.Fore.YELLOW
+RED = colorama.Fore.RED
+CYAN = colorama.Fore.CYAN
+RESET = colorama.Fore.RESET
 
 from crawl4ai import BrowserConfig, CrawlerRunConfig, CacheMode
 
@@ -54,7 +65,7 @@ class ConfigManager:
         if config_path is None:
             config_path = os.environ.get(
                 'CRAWLER_CONFIG_PATH', 
-                str(Path.cwd() / 'crawler_config.json')
+                str(Path.cwd() / 'crawler_config_json.json')  # Fixed path to match your file
             )
         
         self.config_path = config_path
@@ -75,14 +86,15 @@ class ConfigManager:
         """
         try:
             if os.path.exists(self.config_path):
+                logger.info(f"{CYAN}Loading config from {self.config_path}{RESET}")
                 with open(self.config_path, 'r') as f:
                     config_data = json.load(f)
-                    return CrawlerSettings.parse_obj(config_data)
+                    return CrawlerSettings.model_validate(config_data)  # Updated from parse_obj
             else:
-                logger.warning(f"Config file {self.config_path} not found, using defaults")
+                logger.warning(f"{YELLOW}Config file {self.config_path} not found, using defaults{RESET}")
                 return CrawlerSettings()
         except Exception as e:
-            logger.error(f"Error loading config: {str(e)}, using defaults")
+            logger.error(f"{RED}Error loading config: {str(e)}, using defaults{RESET}")
             return CrawlerSettings()
     
     def save_config(self) -> None:
@@ -91,10 +103,10 @@ class ConfigManager:
         """
         try:
             with open(self.config_path, 'w') as f:
-                json.dump(self.settings.dict(), f, indent=2)
-            logger.info(f"Configuration saved to {self.config_path}")
+                json.dump(self.settings.model_dump(), f, indent=2)  # Updated from dict()
+            logger.info(f"{GREEN}Configuration saved to {self.config_path}{RESET}")
         except Exception as e:
-            logger.error(f"Error saving config: {str(e)}")
+            logger.error(f"{RED}Error saving config: {str(e)}{RESET}")
     
     def get_domain_settings(self, url: str) -> DomainSettings:
         """
@@ -111,14 +123,17 @@ class ConfigManager:
         
         # Check for exact domain match
         if domain in self.settings.domains:
+            logger.debug(f"{CYAN}Found exact domain settings for {domain}{RESET}")
             return self.settings.domains[domain]
         
         # Check for subdomain matches
         for config_domain, settings in self.settings.domains.items():
             if domain.endswith(f".{config_domain}") or config_domain.endswith(f".{domain}"):
+                logger.debug(f"{CYAN}Found parent/child domain settings for {domain} via {config_domain}{RESET}")
                 return settings
         
         # No match, create default settings
+        logger.debug(f"{YELLOW}No domain settings found for {domain}, using defaults{RESET}")
         default_settings = DomainSettings()
         
         # Add to domains dict for future reference
@@ -169,12 +184,19 @@ class ConfigManager:
         config_kwargs = {
             "cache_mode": cache_mode,
             "wait_for_timeout": domain_settings.wait_time,
-            "js_snippet": domain_settings.js_snippet,
         }
+        
+        # Add JavaScript snippet if specified
+        if domain_settings.js_snippet:
+            config_kwargs["js_snippet"] = domain_settings.js_snippet
         
         # Add CSS selector if specified
         if domain_settings.css_selector:
             config_kwargs["css_selector"] = domain_settings.css_selector
+        
+        # Add excluded selectors if specified
+        if domain_settings.excluded_selectors:
+            config_kwargs["excluded_selectors"] = domain_settings.excluded_selectors
         
         return CrawlerRunConfig(**config_kwargs)
 

@@ -306,6 +306,19 @@ docker-compose ps
 
 3. **Docker Volumes**: If using persistent Docker volumes, back them up regularly.
 
+## Implementation Details
+
+- **Setup script**: `setup.sh` in the project root installs dependencies and sets up the Python virtual environment and Node.js dependencies.
+- **Deployment script**: `deploy_script.sh` in the project root deploys the Modal API and configures environment files.
+- **Docker**: The `Dockerfile` and `docker-compose.yml` at the project root define how to build container images and run services.
+- **Modal API server**: `modal_inference_api.py` in the project root hosts the AI inference endpoint.
+- **Crawler service**: `src/services/crawler.py` implements web scraping via Crawl4AI with configuration in `utils/crawlerConfig.py`.
+- **TypeScript application**: `src/index.ts` is the main entry point; supporting services live in `src/services/` (e.g., `getCronSources.ts`, `generateDraft.ts`, `sendDraft.ts`).
+- **Cron scheduling**: Built-in cron jobs are configured in `src/index.ts`; for system cron, add entries via `crontab -e` as shown above.
+- **Notifications**: `src/services/sendDraft.ts` manages Slack and Discord webhook notifications; customize channels here.
+- **Source management**: Use `src/services/getCronSources.ts` or the `update_sources.js` script to list or modify monitored sources.
+- **Configuration files**: `.env.example`, `.env`, and `sources_config.json` at the project root define API tokens, webhook URLs, and source lists.
+
 ## Advanced Configuration
 
 ### Customizing Crawl4AI Options
