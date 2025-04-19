@@ -1,0 +1,13 @@
+Error at 2025-04-19T13:37:05.922Z
+(0 , cron_1.handleCron) is not a function
+TypeError: (0 , cron_1.handleCron) is not a function
+    at D:\trendFinder\dist\index.js:47:41
+    at Generator.next (<anonymous>)
+    at D:\trendFinder\dist\index.js:8:71
+    at new Promise (<anonymous>)
+    at __awaiter (D:\trendFinder\dist\index.js:4:12)
+    at main (D:\trendFinder\dist\index.js:39:12)
+    at Object.<anonymous> (D:\trendFinder\dist\index.js:66:1)
+    at Module._compile (node:internal/modules/cjs/loader:1469:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+    at Module.load (node:internal/modules/cjs/loader:1288:32)

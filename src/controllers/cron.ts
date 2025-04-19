@@ -1,17 +1,10 @@
+import * as cron from "node-cron";
+import * as fs from "fs";
 import { scrapeSources } from "../services/scrapeSources";
-import { getCronSources } from "../services/getCronSources";
-import { generateDraft } from "../services/generateDraft";
-import { sendDraft } from "../services/sendDraft";
 
-export const handleCron = async (): Promise<void> => {
-  try {
-    const cronSources = await getCronSources();
-    const rawStories = await scrapeSources(cronSources);
-    const rawStoriesString = JSON.stringify(rawStories);
-    const draftPost = await generateDraft(rawStoriesString);
-    const result = await sendDraft(draftPost!);
-    console.log(result);
-  } catch (error) {
-    console.error(error);
-  }
-};
+export function handleCron() {
+  cron.schedule("*/1 * * * *", () => {
+    const sources = JSON.parse(fs.readFileSync("src/data/sources.json", "utf8"));
+    scrapeSources(sources);
+  });
+}
